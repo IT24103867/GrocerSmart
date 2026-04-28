@@ -6,6 +6,16 @@ const mongoose = require('mongoose');
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const PRODUCT_TEXT_REGEX = /^[a-zA-Z0-9\s&()\-/.#,]+$/;
 
+const isPastDateString = (value) => {
+    if (!value) return false;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    return date < today;
+};
+
 const getFirstValidationMessage = (errors = {}, fallback = 'Validation failed') => {
     const firstError = Object.values(errors).find((value) => typeof value === 'string' && value.trim());
     return firstError || fallback;
@@ -44,6 +54,31 @@ const validateProductPayload = (payload = {}) => {
     if (Number(payload.bulkPrice) <= 0) errors.bulkPrice = 'bulkPrice must be greater than zero';
     if (Number(payload.reorderPoint) < 1) errors.reorderPoint = 'reorderPoint must be at least 1';
 
+    // Price hierarchy validations
+    if (!errors.unitPrice && !errors.purchasePrice) {
+        const unitPrice = Number(payload.unitPrice);
+        const purchasePrice = Number(payload.purchasePrice || 0);
+        if (unitPrice <= purchasePrice) {
+            errors.unitPrice = 'Unit price must be greater than purchase price';
+        }
+    }
+
+    if (!errors.bulkPrice && !errors.purchasePrice) {
+        const bulkPrice = Number(payload.bulkPrice);
+        const purchasePrice = Number(payload.purchasePrice || 0);
+        if (bulkPrice <= purchasePrice) {
+            errors.bulkPrice = 'Bulk price must be greater than purchase price';
+        }
+    }
+
+    if (!errors.unitPrice && !errors.bulkPrice) {
+        const unitPrice = Number(payload.unitPrice);
+        const bulkPrice = Number(payload.bulkPrice);
+        if (unitPrice <= bulkPrice) {
+            errors.unitPrice = 'Unit price must be greater than bulk price';
+        }
+    }
+
     if (payload.unitConfig?.conversionFactor !== undefined) {
         const factor = Number(payload.unitConfig.conversionFactor);
         if (!Number.isFinite(factor) || factor <= 0) {
@@ -63,6 +98,9 @@ const validateProductPayload = (payload = {}) => {
             const batchId = String(batch?.batchId || '').trim();
             if (batchId && !PRODUCT_TEXT_REGEX.test(batchId)) {
                 errors[`batchDetails.${index}.batchId`] = 'Batch ID contains invalid characters';
+            }
+            if (batch?.expiryDate && isPastDateString(batch.expiryDate)) {
+                errors[`batchDetails.${index}.expiryDate`] = 'Expiry date cannot be in the past';
             }
             if (batch?.costPrice === '') {
                 errors[`batchDetails.${index}.costPrice`] = 'Batch costPrice is required';

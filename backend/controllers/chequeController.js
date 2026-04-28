@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 
 const ALLOWED_STATUS = ['PENDING', 'DEPOSITED', 'CLEARED', 'BOUNCED'];
 const ALLOWED_TYPES = ['Incoming', 'Outgoing'];
-const CHEQUE_TEXT_REGEX = /^[a-zA-Z0-9\s&()\-/.#,]+$/;
+const CHEQUE_TEXT_REGEX = /^[a-zA-Z\s]+$/;
 const CHEQUE_NUMBER_REGEX = /^\d{6}$/;
 
 const getFirstValidationMessage = (errors = {}, fallback = 'Validation failed') => {
@@ -68,7 +68,7 @@ const validateChequePayload = (payload = {}, { partial = false } = {}) => {
         const bankName = String(payload.bankName || '').trim();
         if (!bankName) errors.bankName = 'Bank name is required';
         else if (bankName.length < 2 || bankName.length > 100) errors.bankName = 'Bank name must be between 2 and 100 characters';
-        else if (!CHEQUE_TEXT_REGEX.test(bankName)) errors.bankName = 'Bank name contains invalid characters';
+        else if (!CHEQUE_TEXT_REGEX.test(bankName)) errors.bankName = 'Bank name must contain only letters';
     }
 
     const shouldValidateBranch = !partial || payload.branch !== undefined;
@@ -76,7 +76,7 @@ const validateChequePayload = (payload = {}, { partial = false } = {}) => {
         const branch = String(payload.branch || '').trim();
         if (!branch) errors.branch = 'Branch is required';
         else if (branch.length > 100) errors.branch = 'Branch cannot exceed 100 characters';
-        else if (!CHEQUE_TEXT_REGEX.test(branch)) errors.branch = 'Branch contains invalid characters';
+        else if (!CHEQUE_TEXT_REGEX.test(branch)) errors.branch = 'Branch must contain only letters';
     }
 
     const shouldValidateType = !partial || payload.chequeType !== undefined;

@@ -12,12 +12,14 @@ const chequeSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Bank name is required'],
         trim: true,
+        match: [/^[a-zA-Z\s]+$/, 'Bank name must contain only letters'],
         minlength: [2, 'Bank name must be at least 2 characters'],
         maxlength: [100, 'Bank name cannot exceed 100 characters']
     },
     branch: {
         type: String,
         trim: true,
+        match: [/^[a-zA-Z\s]+$/, 'Branch must contain only letters'],
         maxlength: [100, 'Branch cannot exceed 100 characters']
     },
     // Incoming = from customer; Outgoing = to supplier

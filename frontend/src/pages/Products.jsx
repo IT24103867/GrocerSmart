@@ -33,6 +33,8 @@ const initialFormData = {
 
 const PRODUCT_TEXT_REGEX = /^[a-zA-Z0-9\s&()\-/.#,]+$/;
 
+const todayDateString = () => format(new Date(), 'yyyy-MM-dd');
+
 export default function Products() {
     const queryClient = useQueryClient();
     const categoryContainerRef = useRef(null);
@@ -225,6 +227,23 @@ export default function Products() {
             return toast.error(`${invalidNumeric.label} cannot be less than ${invalidNumeric.min}`);
         }
 
+        // Price hierarchy validations
+        const unitPrice = Number(formData.unitPrice);
+        const bulkPrice = Number(formData.bulkPrice);
+        const purchasePrice = Number(formData.purchasePrice);
+
+        if (unitPrice <= purchasePrice) {
+            return toast.error('Unit price must be greater than purchase price');
+        }
+
+        if (bulkPrice <= purchasePrice) {
+            return toast.error('Bulk price must be greater than purchase price');
+        }
+
+        if (unitPrice <= bulkPrice) {
+            return toast.error('Unit price must be greater than bulk price');
+        }
+
         const invalidBatchIndex = (formData.batchDetails || []).findIndex((batch) => Number(batch?.costPrice || 0) < 0);
         if (invalidBatchIndex >= 0) {
             return toast.error(`Batch ${invalidBatchIndex + 1}: Cost Price cannot be negative`);
@@ -236,6 +255,14 @@ export default function Products() {
         });
         if (invalidBatchLabelIndex >= 0) {
             return toast.error(`Batch ${invalidBatchLabelIndex + 1}: Batch ID contains invalid characters`);
+        }
+
+        const invalidExpiryIndex = (formData.batchDetails || []).findIndex((batch) => {
+            const expiryDate = String(batch?.expiryDate || '').trim();
+            return expiryDate && expiryDate < todayDateString();
+        });
+        if (invalidExpiryIndex >= 0) {
+            return toast.error(`Batch ${invalidExpiryIndex + 1}: Expiry date cannot be in the past`);
         }
 
         setCategorySearch('');
@@ -587,7 +614,7 @@ export default function Products() {
                                         <Input label="Batch ID" value={batch.batchId} onChange={(e) => handleBatchChange(index, 'batchId', e.target.value)} />
                                     </div>
                                     <div className="md:col-span-3">
-                                        <Input type="date" label="Expiry Date" value={batch.expiryDate} onChange={(e) => handleBatchChange(index, 'expiryDate', e.target.value)} />
+                                        <Input type="date" label="Expiry Date" value={batch.expiryDate} onChange={(e) => handleBatchChange(index, 'expiryDate', e.target.value)} min={todayDateString()} />
                                     </div>
                                     <div className="md:col-span-2">
                                         <Input type="number" label="Cost Price" value={batch.costPrice} onChange={(e) => handleBatchChange(index, 'costPrice', Math.max(0, parseFloat(e.target.value) || 0))} min="0" step="0.01" />

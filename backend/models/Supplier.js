@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const PHONE_REGEX = /^\+?[0-9\s()-]{7,20}$/;
+const PHONE_REGEX = /^(?:0(?:70|71|72|74|75|76|77|78)\d{7}|\+94(?:70|71|72|74|75|76|77|78)\d{7})$/;
 
 const supplierSchema = new mongoose.Schema({
     publicId: {
@@ -23,7 +23,7 @@ const supplierSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Phone number is required'],
         trim: true,
-        match: [PHONE_REGEX, 'Please provide a valid phone number']
+        match: [PHONE_REGEX, 'Phone number must be 07Xxxxxxxx or +947Xxxxxxxx (X: 0,1,2,4,5,6,7,8)']
     },
     email: {
         type: String,

@@ -71,7 +71,21 @@ const productSchema = new mongoose.Schema({
     batchDetails: [
         {
             batchId: { type: String },
-            expiryDate: { type: Date },
+            expiryDate: {
+                type: Date,
+                validate: {
+                    validator: function (value) {
+                        if (!value) return true;
+                        const expiry = new Date(value);
+                        if (Number.isNaN(expiry.getTime())) return false;
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        expiry.setHours(0, 0, 0, 0);
+                        return expiry >= today;
+                    },
+                    message: 'Expiry date cannot be in the past'
+                }
+            },
             costPrice: { type: Number, default: 0 }
         }
     ],
@@ -182,4 +196,3 @@ productSchema.pre('save', async function () {
 
 const Product = mongoose.model('Product', productSchema);
 module.exports = Product;
-// Updated by IT24104054

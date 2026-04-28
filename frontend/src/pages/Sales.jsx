@@ -517,8 +517,8 @@ export default function Sales() {
                                                     className="w-full bg-transparent text-right font-bold text-slate-900 dark:text-slate-100 border-b-2 border-slate-100 dark:border-slate-800 focus:border-brand-primary outline-none transition-all py-1"
                                                     value={item.unitPrice} 
                                                     onChange={(e) => handleItemChange(index, 'unitPrice', Math.max(0.01, parseFloat(e.target.value) || 0))}
-                                                    step="0.01"
-                                                    min="0.01"
+                                                    step="0.1"
+                                                    min="1"
                                                 />
                                             </td>
                                             <td className="px-5 py-4 text-right font-black text-slate-900 dark:text-slate-100 italic">

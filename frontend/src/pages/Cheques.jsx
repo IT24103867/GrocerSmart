@@ -31,7 +31,7 @@ const initialFormData = {
     note: '',
 };
 
-const CHEQUE_TEXT_REGEX = /^[a-zA-Z0-9\s&()\-/.#,]+$/;
+const CHEQUE_TEXT_REGEX = /^[a-zA-Z\s]+$/;
 const CHEQUE_NUMBER_REGEX = /^\d{6}$/;
 
 export default function Cheques() {
@@ -167,7 +167,7 @@ export default function Cheques() {
         }
 
         if (!CHEQUE_TEXT_REGEX.test(bankName)) {
-            toast.error('Bank name contains invalid characters');
+            toast.error('Bank name must contain only letters');
             return;
         }
 
@@ -177,7 +177,7 @@ export default function Cheques() {
         }
 
         if (!CHEQUE_TEXT_REGEX.test(branch)) {
-            toast.error('Branch contains invalid characters');
+            toast.error('Branch must contain only letters');
             return;
         }
 
@@ -258,6 +258,7 @@ export default function Cheques() {
             }
         },
         { id: 'bankName', label: 'Bank', minWidth: '150px', sortable: true, render: (val) => <span className="font-bold text-slate-500 dark:text-slate-400">{val}</span> },
+        { id: 'branch', label: 'Branch', minWidth: '160px', sortable: true, render: (val) => <span className="font-bold text-slate-500 dark:text-slate-400">{val || '—'}</span> },
         {
             id: 'chequeType', label: 'Type', minWidth: '100px', sortable: true, align: 'center',
             render: (val) => <Badge variant={val === 'Incoming' ? 'success' : 'amber'}>{val || 'Incoming'}</Badge>
