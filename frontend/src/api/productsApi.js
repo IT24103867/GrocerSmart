@@ -14,3 +14,4 @@ export const importCsv = (file) => {
 };
 
 export const getProductDemandForecast = (productId) => api.get(`/orders/products/${productId}/forecast`);
+// Updated by IT24104054
