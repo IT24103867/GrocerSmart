@@ -1,7 +1,5 @@
 const mongoose = require('mongoose');
 
-const PHONE_REGEX = /^\+?[0-9\s()-]{7,20}$/;
-
 const supplierSchema = new mongoose.Schema({
     publicId: {
         type: String,
@@ -12,24 +10,18 @@ const supplierSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Supplier name is required'],
-        trim: true,
-        minlength: [2, 'Supplier name must be at least 2 characters'],
-        maxlength: [120, 'Supplier name cannot exceed 120 characters']
+        trim: true
     },
     contactPerson: {
         type: String
     },
     phone: {
         type: String,
-        required: [true, 'Phone number is required'],
-        trim: true,
-        match: [PHONE_REGEX, 'Please provide a valid phone number']
+        required: [true, 'Phone number is required']
     },
     email: {
         type: String,
-        lowercase: true,
-        trim: true,
-        match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address']
+        lowercase: true
     },
     address: {
         type: String
@@ -42,8 +34,7 @@ const supplierSchema = new mongoose.Schema({
     // Financials
     outstandingPayable: {
         type: Number,
-        default: 0,
-        min: [0, 'Outstanding payable cannot be negative']
+        default: 0
     },
     category: {
         type: String
