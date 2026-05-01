@@ -235,6 +235,16 @@ exports.createOrder = async (req, res, next) => {
 
         const { invoiceNo, items, paymentType, creditCustomerId, customerId, note } = req.body;
 
+        // Preserve originals for adjustments if the order was already confirmed/received
+        const originalItems = Array.isArray(order.items) ? order.items.map(i => ({
+            productId: String(i.product?._id || i.product || i.productId || ''),
+            qty: Number(i.qty || i.quantity || 0),
+            lineTotal: Number(i.lineTotal || i.subtotal || (i.qty || 0) * (i.unitPrice || i.price || 0))
+        })) : [];
+        const originalTotalAmount = Number(order.totalAmount || 0);
+        const originalPaymentType = String(order.paymentType || '').toUpperCase();
+        const originalCustomerRef = order.customer || order.creditCustomerId;
+
         const normalizedPaymentType = String(paymentType || '').toUpperCase();
         if (!ALLOWED_PAYMENT_TYPES.includes(normalizedPaymentType)) {
             return res.status(400).json(apiResponse.error('paymentType must be CASH, CARD or CREDIT'));
@@ -324,9 +334,7 @@ exports.updateOrder = async (req, res, next) => {
             return res.status(400).json(apiResponse.error('Only sales orders can be updated from this endpoint'));
         }
 
-        if (order.status !== 'DRAFT') {
-            return res.status(400).json(apiResponse.error('Only draft orders can be updated'));
-        }
+        // Allow updates to orders regardless of current status
 
         const { invoiceNo, items, paymentType, creditCustomerId, customerId, note } = req.body;
 
@@ -402,6 +410,96 @@ exports.updateOrder = async (req, res, next) => {
                 return res.status(400).json(apiResponse.error('Note cannot exceed 500 characters'));
             }
             order.note = normalizedNote || undefined;
+        }
+
+        // If order was already confirmed (sales) or received (purchase), apply adjustments
+        if (order.status === 'CONFIRMED' || (order.type === 'PURCHASE' && order.status === 'RECEIVED')) {
+            // Build maps of productId -> qty for original and updated items
+            const mapItems = (arr) => {
+                const m = new Map();
+                for (const it of arr || []) {
+                    const pid = String(it.productId || it.product || it.product?._id || it.productId || '');
+                    const q = Number(it.qty || it.quantity || 0);
+                    if (!pid) continue;
+                    m.set(pid, (m.get(pid) || 0) + q);
+                }
+                return m;
+            };
+
+            const updatedItemsMap = mapItems(order.items);
+            const originalItemsMap = mapItems(originalItems);
+
+            // For each product in either map, compute delta and adjust stock accordingly
+            const allProductIds = new Set([...updatedItemsMap.keys(), ...originalItemsMap.keys()]);
+
+            for (const pid of allProductIds) {
+                if (!isValidObjectId(pid)) continue;
+                const origQty = Number(originalItemsMap.get(pid) || 0);
+                const newQty = Number(updatedItemsMap.get(pid) || 0);
+                const delta = newQty - origQty; // positive => more was sold/received, negative => returned
+
+                const product = await Product.findById(pid);
+                if (!product) continue;
+
+                if (order.type === 'SALE') {
+                    // Confirmed sales reduce stock
+                    if (delta > 0) {
+                        const available = Number(product.unitQty || 0);
+                        if (available < delta) {
+                            return res.status(400).json(apiResponse.error(`Insufficient stock for product ${product.name} to increase order quantity`));
+                        }
+                        product.unitQty = available - delta;
+                    } else if (delta < 0) {
+                        product.unitQty = Number(product.unitQty || 0) + Math.abs(delta);
+                    }
+                } else if (order.type === 'PURCHASE') {
+                    // Received purchase orders increased stock when received
+                    if (delta > 0) {
+                        product.unitQty = Number(product.unitQty || 0) + delta;
+                    } else if (delta < 0) {
+                        const available = Number(product.unitQty || 0);
+                        if (available < Math.abs(delta)) {
+                            return res.status(400).json(apiResponse.error(`Insufficient stock for product ${product.name} to reduce received quantity`));
+                        }
+                        product.unitQty = available - Math.abs(delta);
+                    }
+                }
+
+                await product.save();
+            }
+
+            // If a confirmed sale had credit payment, adjust customer's balance by the total delta
+            if (order.type === 'SALE') {
+                const newTotal = Number(order.totalAmount || 0);
+                const amountDelta = newTotal - originalTotalAmount;
+                const newPaymentType = String(order.paymentType || '').toUpperCase();
+                const customerRef = order.customer || order.creditCustomerId || originalCustomerRef;
+
+                if (newPaymentType === 'CREDIT' || originalPaymentType === 'CREDIT') {
+                    // If customer ref changed, use the new one
+                    if (customerRef && isValidObjectId(customerRef)) {
+                        const customer = await CreditCustomer.findById(customerRef);
+                        if (customer) {
+                            const projected = Number(customer.currentBalance || 0) + amountDelta;
+                            if (projected > Number(customer.creditLimit || 0)) {
+                                return res.status(400).json(apiResponse.error('Credit limit exceeded for selected customer due to order update'));
+                            }
+
+                            customer.currentBalance = projected;
+                            if (amountDelta !== 0) {
+                                customer.ledger.push({
+                                    date: new Date(),
+                                    type: amountDelta > 0 ? 'Debit' : 'Credit',
+                                    amount: Math.abs(amountDelta),
+                                    orderId: String(order._id),
+                                    note: 'Adjustment from order update'
+                                });
+                            }
+                            await customer.save();
+                        }
+                    }
+                }
+            }
         }
 
         await order.save();
